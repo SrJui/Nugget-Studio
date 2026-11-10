@@ -1,4 +1,5 @@
 import { renderOverview } from './views/overview.ts';
+import { renderSettings } from './views/settings.ts';
 
 type View = (root: HTMLElement) => void;
 
@@ -10,7 +11,7 @@ const views: Record<string, View> = {
   erzeugen: placeholder('Erzeugen'),
   pruefen: placeholder('Prüfen'),
   uebersicht: renderOverview,
-  einstellungen: placeholder('Einstellungen'),
+  einstellungen: renderSettings,
 };
 
 function render() {

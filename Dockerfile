@@ -20,9 +20,7 @@ RUN npm ci --omit=dev
 COPY src ./src
 COPY --from=build /app/dist ./dist
 
-# Alles Dauerhafte (Datenbank, Anmeldungen der KI-CLIs) liegt in /app/data.
-ENV CLAUDE_CONFIG_DIR=/app/data/claude \
-    CODEX_HOME=/app/data/codex
+# Alles Dauerhafte (Datenbank, Anmeldungen der KI-CLIs) liegt in /app/data, siehe src/config.ts.
 RUN mkdir -p /app/data && chown -R node:node /app/data
 USER node
 

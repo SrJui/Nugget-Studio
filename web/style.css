@@ -66,3 +66,72 @@ th, td {
 .error {
   color: #d64545;
 }
+
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.5rem 1.25rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.card h2 {
+  font-size: 1.1rem;
+}
+
+.choice {
+  display: block;
+  padding: 0.25rem 0;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.row input {
+  flex: 1;
+}
+
+input, textarea, select, button {
+  font: inherit;
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+
+button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #222;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  color: inherit;
+  border-color: var(--line);
+}
+
+.badge {
+  font-size: 0.75rem;
+  font-weight: normal;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--line);
+  vertical-align: middle;
+}
+
+.badge.ok {
+  background: #3a9d5d;
+  color: white;
+}
+
+code.big {
+  font-size: 1.3rem;
+  letter-spacing: 0.1em;
+}

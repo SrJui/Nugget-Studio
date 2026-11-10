@@ -1,13 +1,9 @@
+import './config.ts';
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
-import { mkdirSync } from 'node:fs';
 import { countPublishedByTopic, getTopics } from './supabase.ts';
-
-// Die Anmelde-Ordner der KI-CLIs liegen im Daten-Volume und sind beim ersten Start noch leer.
-for (const dir of [process.env.CLAUDE_CONFIG_DIR, process.env.CODEX_HOME]) {
-  if (dir) mkdirSync(dir, { recursive: true });
-}
+import { settings } from './routes/settings.ts';
 
 const app = new Hono();
 
@@ -24,6 +20,8 @@ app.get('/api/overview', async (c) => {
   const [topics, counts] = await Promise.all([getTopics(), countPublishedByTopic()]);
   return c.json(topics.map((topic) => ({ ...topic, published: counts[topic.id] ?? 0 })));
 });
+
+app.route('/api/settings', settings);
 
 // Die mit `npm run build` gebaute Oberfläche.
 app.use('/*', serveStatic({ root: './dist/web' }));
