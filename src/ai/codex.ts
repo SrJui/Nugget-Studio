@@ -1,10 +1,8 @@
-import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
-import { readFile, rm, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { aiWorkDir } from '../config.ts';
+import { CodexClient, type RpcMessage } from './codex-client.ts';
 import type { AiProvider } from './provider.ts';
-import { runCommand } from './run-command.ts';
+
+type Account = { type: string; email?: string | null; planType?: string };
 
 export type CodexLogin = {
   state: 'idle' | 'waiting' | 'done' | 'error';
@@ -13,92 +11,177 @@ export type CodexLogin = {
   message?: string;
 };
 
+async function withClient<T>(fn: (client: CodexClient) => Promise<T>): Promise<T> {
+  const client = new CodexClient();
+  try {
+    await client.initialize();
+    return await fn(client);
+  } finally {
+    client.close();
+  }
+}
+
+async function readAccount(client: CodexClient): Promise<Account | null> {
+  const { account } = await client.request<{ account: Account | null }>('account/read', { refreshToken: false });
+  return account;
+}
+
+// --- Anmeldung per Code (funktioniert auch, wenn Browser und Server verschiedene Rechner sind) ---
+
 let login: CodexLogin = { state: 'idle' };
+let loginClient: CodexClient | undefined;
+let loginTimer: NodeJS.Timeout | undefined;
 
 export function codexLoginState(): CodexLogin {
   return login;
 }
 
-/**
- * Startet die Geräte-Anmeldung. Liefert Link und Code, sobald Codex sie ausgegeben hat.
- * Der Vorgang läuft danach weiter, bis die Anmeldung im Browser bestätigt ist.
- */
-export function startCodexLogin(): Promise<CodexLogin> {
-  if (login.state === 'waiting') return Promise.resolve(login);
+function finishLogin(result: CodexLogin) {
+  login = result;
+  clearTimeout(loginTimer);
+  const client = loginClient;
+  loginClient = undefined;
+  client?.close();
+}
 
-  login = { state: 'waiting' };
-  const child = spawn('codex', ['login', '--device-auth'], {
-    cwd: aiWorkDir,
-    env: { ...process.env, NO_COLOR: '1' },
-  });
+export async function startCodexLogin(): Promise<CodexLogin> {
+  if (login.state === 'waiting') return login;
 
-  return new Promise((resolveLogin) => {
-    let output = '';
-    const onOutput = (chunk: Buffer) => {
-      output += chunk;
-      const text = output.replace(/\x1b\[[0-9;]*m/g, '');
-      login.url ??= text.match(/https:\/\/\S+/)?.[0];
-      login.code ??= text.match(/\b[A-Z0-9]{4}-[A-Z0-9]{4,5}\b/)?.[0];
-      if (login.url && login.code) resolveLogin(login);
-    };
-    child.stdout.on('data', onOutput);
-    child.stderr.on('data', onOutput);
-    child.on('error', (error) => {
-      login = { state: 'error', message: error.message };
-      resolveLogin(login);
-    });
-    child.on('close', (code) => {
-      login = code === 0
+  const client = new CodexClient();
+  loginClient = client;
+  client.subscribe((message) => {
+    if (loginClient !== client) return;
+    if (message.method === 'account/login/completed') {
+      finishLogin(message.params?.success
         ? { state: 'done' }
-        : { state: 'error', message: 'Anmeldung abgebrochen oder abgelaufen.' };
-      resolveLogin(login);
-    });
+        : { state: 'error', message: String(message.params?.error || 'ChatGPT-Anmeldung fehlgeschlagen.') });
+    } else if (message.method === 'nugget/disconnected') {
+      finishLogin({ state: 'error', message: 'Codex wurde während der Anmeldung beendet. Bitte erneut versuchen.' });
+    }
   });
+
+  try {
+    await client.initialize();
+    const result = await client.request<{ verificationUrl: string; userCode: string }>(
+      'account/login/start', { type: 'chatgptDeviceCode' },
+    );
+    // Eine bereits abgeschlossene Anmeldung darf nicht wieder auf „wartet“ springen.
+    if (loginClient === client) {
+      login = { state: 'waiting', url: result.verificationUrl, code: result.userCode };
+      loginTimer = setTimeout(
+        () => finishLogin({ state: 'error', message: 'Der Code ist abgelaufen. Bitte erneut anmelden.' }),
+        15 * 60_000,
+      );
+    }
+    return login;
+  } catch (error) {
+    finishLogin({ state: 'error', message: (error as Error).message });
+    throw error;
+  }
 }
 
+/** Meldet Nugget Studios eigenen Codex-Login ab. */
 export async function codexLogout() {
-  await runCommand('codex', ['logout'], { timeoutMs: 30_000 });
-  login = { state: 'idle' };
+  finishLogin({ state: 'idle' });
+  await withClient((client) => client.request('account/logout'));
 }
+
+// --- Anbieter ---
 
 export const codex: AiProvider = {
   id: 'codex',
-  label: 'ChatGPT (Codex)',
+  label: 'ChatGPT',
 
   async status() {
-    const result = await runCommand('codex', ['login', 'status'], { timeoutMs: 30_000 });
-    const detail = (result.stdout + result.stderr).trim();
-    return { loggedIn: result.code === 0, detail };
+    try {
+      const account = await withClient(readAccount);
+      return account?.type === 'chatgpt'
+        ? { loggedIn: true, detail: [account.email, account.planType].filter(Boolean).join(' · ') }
+        : { loggedIn: false };
+    } catch (error) {
+      return { loggedIn: false, detail: (error as Error).message };
+    }
   },
 
-  async run(prompt, schema) {
-    const id = randomUUID();
-    const schemaFile = resolve(aiWorkDir, `${id}-schema.json`);
-    const outputFile = resolve(aiWorkDir, `${id}-output.json`);
-    await writeFile(schemaFile, JSON.stringify(schema));
+  async models() {
+    return withClient(async (client) => {
+      const models = [];
+      let cursor: string | null = null;
+      do {
+        const page: { data: { model: string; displayName: string }[]; nextCursor: string | null } =
+          await client.request('model/list', { limit: 100, cursor, includeHidden: false });
+        models.push(...page.data.map((model) => ({ id: model.model, label: model.displayName || model.model })));
+        cursor = page.nextCursor;
+      } while (cursor);
+      return models;
+    });
+  },
+
+  async run(prompt, schema, model) {
+    const client = new CodexClient();
+    let threadId: string | undefined;
+    let finalText = '';
+    let complete!: (outcome: Error | { status: string; error?: { message: string } | null }) => void;
+    const completed = new Promise<Error | { status: string; error?: { message: string } | null }>((resolve) => {
+      complete = resolve;
+    });
+    const timer = setTimeout(() => {
+      complete(new Error('ChatGPT hat das Zeitlimit erreicht. Bitte erneut versuchen.'));
+      client.close();
+    }, 15 * 60_000);
+
+    const unsubscribe = client.subscribe((message: RpcMessage) => {
+      const params = message.params ?? {};
+      if (message.method === 'nugget/disconnected') {
+        complete(new Error(String(params.message)));
+        return;
+      }
+      // Rückfragen von Codex (z. B. Freigaben) brauchen eine Antwort, sonst wartet Codex bis zum Zeitlimit.
+      if (message.id !== undefined && message.method) {
+        client.send({ id: message.id, error: { message: 'In Nugget Studio nicht verfügbar.' } });
+        return;
+      }
+      if (params.threadId !== threadId) return;
+      if (message.method === 'item/completed') {
+        const item = params.item as { type: string; text?: string };
+        if (item.type === 'agentMessage' && item.text) finalText = item.text;
+      } else if (message.method === 'turn/completed') {
+        complete(params.turn as { status: string; error?: { message: string } | null });
+      }
+    });
 
     try {
-      const result = await runCommand(
-        'codex',
-        [
-          '--search',
-          'exec',
-          '--skip-git-repo-check',
-          '--ephemeral',
-          '--sandbox', 'read-only',
-          '--output-schema', schemaFile,
-          '-o', outputFile,
-          '-',
-        ],
-        { input: prompt },
-      );
-      if (result.code !== 0) {
-        throw new Error(`Codex: ${result.stderr.trim().split('\n').slice(-3).join(' ') || 'Fehler'}`);
+      await client.initialize();
+      if ((await readAccount(client))?.type !== 'chatgpt') {
+        throw new Error('Bitte in den Einstellungen zuerst mit ChatGPT anmelden.');
       }
-      return JSON.parse(await readFile(outputFile, 'utf8'));
+      const thread = await client.request<{ thread: { id: string } }>('thread/start', {
+        cwd: aiWorkDir,
+        approvalPolicy: 'never',
+        sandbox: 'read-only',
+        ephemeral: true,
+        modelProvider: 'openai',
+        ...(model ? { model } : {}),
+      });
+      threadId = thread.thread.id;
+      await client.request('turn/start', {
+        threadId,
+        input: [{ type: 'text', text: prompt, text_elements: [] }],
+        outputSchema: schema,
+      });
+
+      const outcome = await completed;
+      if (outcome instanceof Error) throw outcome;
+      if (outcome.status !== 'completed') throw new Error(outcome.error?.message || `ChatGPT-Lauf ${outcome.status}.`);
+      try {
+        return JSON.parse(finalText);
+      } catch {
+        throw new Error('ChatGPT hat kein Ergebnis im erwarteten Format geliefert.');
+      }
     } finally {
-      await rm(schemaFile, { force: true });
-      await rm(outputFile, { force: true });
+      clearTimeout(timer);
+      unsubscribe();
+      client.close();
     }
   },
 };

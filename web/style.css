@@ -97,6 +97,18 @@ th, td {
   flex: 1;
 }
 
+label.row {
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+pre {
+  background: var(--line);
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
 input, textarea, select, button {
   font: inherit;
   padding: 0.4rem 0.7rem;

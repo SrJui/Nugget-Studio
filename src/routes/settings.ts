@@ -1,8 +1,7 @@
 import { Hono } from 'hono';
-import { setSetting } from '../db.ts';
-import { removeClaudeToken, saveClaudeToken } from '../ai/claude.ts';
+import { getSetting, setSetting } from '../db.ts';
 import { codexLoginState, codexLogout, startCodexLogin } from '../ai/codex.ts';
-import { activeProvider, isProviderId, providers } from '../ai/provider.ts';
+import { activeProvider, isProviderId, modelSettingKey, providers, runWithActiveProvider } from '../ai/provider.ts';
 
 export const settings = new Hono();
 
@@ -11,6 +10,7 @@ settings.get('/', async (c) => {
     Object.values(providers).map(async (provider) => ({
       id: provider.id,
       label: provider.label,
+      model: getSetting(modelSettingKey(provider.id)) ?? '',
       ...(await provider.status()),
     })),
   );
@@ -24,23 +24,24 @@ settings.put('/provider', async (c) => {
   return c.json({ ok: true });
 });
 
-settings.put('/claude/token', async (c) => {
-  const { token } = await c.req.json();
-  if (typeof token !== 'string' || !token.trim()) return c.json({ error: 'Schlüssel fehlt' }, 400);
-  saveClaudeToken(token);
-  return c.json(await providers.claude.status());
+settings.get('/models', async (c) => {
+  const provider = c.req.query('provider');
+  if (!isProviderId(provider)) return c.json({ error: 'Unbekannter Anbieter' }, 400);
+  return c.json(await providers[provider].models());
 });
 
-settings.delete('/claude/token', (c) => {
-  removeClaudeToken();
+settings.put('/model', async (c) => {
+  const { provider, model } = await c.req.json();
+  if (!isProviderId(provider) || typeof model !== 'string') return c.json({ error: 'Ungültige Angaben' }, 400);
+  setSetting(modelSettingKey(provider), model);
   return c.json({ ok: true });
 });
 
-settings.post('/codex/login', async (c) => c.json(await startCodexLogin()));
-
 settings.get('/codex/login', (c) => c.json(codexLoginState()));
 
-settings.delete('/codex/login', async (c) => {
+settings.post('/codex/login', async (c) => c.json(await startCodexLogin()));
+
+settings.post('/codex/logout', async (c) => {
   await codexLogout();
   return c.json({ ok: true });
 });
@@ -53,8 +54,11 @@ const TEST_SCHEMA = {
 };
 
 settings.post('/test', async (c) => {
-  const provider = activeProvider();
   const started = Date.now();
-  const result = await provider.run('Antworte im Feld "answer" nur mit dem Wort: ok', TEST_SCHEMA);
-  return c.json({ provider: provider.label, result, seconds: Math.round((Date.now() - started) / 1000) });
+  const result = await runWithActiveProvider('Antworte im Feld "answer" nur mit dem Wort: ok', TEST_SCHEMA);
+  return c.json({
+    provider: activeProvider().label,
+    result,
+    seconds: Math.round((Date.now() - started) / 1000),
+  });
 });
