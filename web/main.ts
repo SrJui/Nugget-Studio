@@ -1,16 +1,13 @@
 import { renderGenerate } from './views/generate.ts';
 import { renderOverview } from './views/overview.ts';
+import { renderReview } from './views/review.ts';
 import { renderSettings } from './views/settings.ts';
 
 type View = (root: HTMLElement) => void;
 
-const placeholder = (title: string): View => (root) => {
-  root.innerHTML = `<h1>${title}</h1><p>Kommt in einer der nächsten Etappen.</p>`;
-};
-
 const views: Record<string, View> = {
   erzeugen: renderGenerate,
-  pruefen: placeholder('Prüfen'),
+  pruefen: renderReview,
   uebersicht: renderOverview,
   einstellungen: renderSettings,
 };

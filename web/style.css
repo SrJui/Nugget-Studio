@@ -151,6 +151,94 @@ progress {
   accent-color: var(--accent);
 }
 
+/* Prüf-Ansicht */
+
+.review-header {
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.issues {
+  background: color-mix(in srgb, #e8a33d 18%, transparent);
+  border-radius: 8px;
+  padding: 0.6rem 1rem 0.6rem 2rem;
+}
+
+.widget {
+  max-width: 22rem;
+  padding: 1rem 1.1rem;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid var(--line);
+}
+
+.widget p {
+  margin: 0.4rem 0 0;
+  font-size: 0.95rem;
+}
+
+.body {
+  margin-top: 1.5rem;
+}
+
+.sources {
+  list-style: none;
+  padding: 0;
+}
+
+.sources .ok {
+  color: #3a9d5d;
+}
+
+.sources .bad {
+  color: #d64545;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  position: sticky;
+  bottom: 0;
+  padding: 0.75rem 0;
+  background: Canvas;
+}
+
+button.danger {
+  color: #d64545;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+kbd {
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 0 0.35rem;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  opacity: 0.7;
+}
+
+.edit label {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.counter {
+  float: right;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.source-row {
+  margin-bottom: 0.4rem;
+}
+
 pre {
   background: var(--line);
   padding: 0.6rem 0.8rem;
