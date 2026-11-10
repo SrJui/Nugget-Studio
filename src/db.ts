@@ -9,6 +9,33 @@ db.exec(`
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  -- Ein Auftrag „erzeuge N Facts zu diesen Themen“.
+  CREATE TABLE IF NOT EXISTS jobs (
+    id         INTEGER PRIMARY KEY,
+    count      INTEGER NOT NULL,
+    topics     TEXT NOT NULL,               -- JSON-Liste von Themen-IDs
+    direction  TEXT NOT NULL DEFAULT '',
+    status     TEXT NOT NULL DEFAULT 'running', -- running | done | failed | cancelled
+    created    INTEGER NOT NULL DEFAULT 0,  -- bisher erzeugte Entwürfe
+    error      TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Ein erzeugter Fact. Abgelehnte werden gelöscht, freigegebene behalten ihre Supabase-ID.
+  CREATE TABLE IF NOT EXISTS drafts (
+    id         INTEGER PRIMARY KEY,
+    job_id     INTEGER REFERENCES jobs (id),
+    topic_id   TEXT NOT NULL,
+    title      TEXT NOT NULL,
+    summary    TEXT NOT NULL,
+    body       TEXT NOT NULL,
+    sources    TEXT NOT NULL,               -- JSON: [{ title, url, ok }]
+    issues     TEXT NOT NULL DEFAULT '[]',  -- JSON: Hinweise der automatischen Prüfung
+    status     TEXT NOT NULL DEFAULT 'open', -- open | published
+    fact_id    TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 export function getSetting(key: string): string | undefined {

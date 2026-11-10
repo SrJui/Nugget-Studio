@@ -3,7 +3,11 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { countPublishedByTopic, getTopics } from './supabase.ts';
+import { countOpenDraftsByTopic } from './drafts.ts';
+import { work } from './jobs.ts';
 import { settings } from './routes/settings.ts';
+import { jobs } from './routes/jobs.ts';
+import { drafts } from './routes/drafts.ts';
 
 const app = new Hono();
 
@@ -18,10 +22,13 @@ app.get('/api/topics', async (c) => c.json(await getTopics()));
 
 app.get('/api/overview', async (c) => {
   const [topics, counts] = await Promise.all([getTopics(), countPublishedByTopic()]);
-  return c.json(topics.map((topic) => ({ ...topic, published: counts[topic.id] ?? 0 })));
+  const open = countOpenDraftsByTopic();
+  return c.json(topics.map((topic) => ({ ...topic, published: counts[topic.id] ?? 0, open: open[topic.id] ?? 0 })));
 });
 
 app.route('/api/settings', settings);
+app.route('/api/jobs', jobs);
+app.route('/api/drafts', drafts);
 
 // Die mit `npm run build` gebaute Oberfläche.
 app.use('/*', serveStatic({ root: './dist/web' }));
@@ -30,3 +37,6 @@ const port = Number(process.env.PORT ?? 8787);
 serve({ fetch: app.fetch, port }, () => {
   console.log(`Nugget Studio läuft auf http://localhost:${port}`);
 });
+
+// Aufträge, die vor einem Neustart noch liefen, weiter abarbeiten.
+void work();

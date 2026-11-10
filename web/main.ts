@@ -1,3 +1,4 @@
+import { renderGenerate } from './views/generate.ts';
 import { renderOverview } from './views/overview.ts';
 import { renderSettings } from './views/settings.ts';
 
@@ -8,7 +9,7 @@ const placeholder = (title: string): View => (root) => {
 };
 
 const views: Record<string, View> = {
-  erzeugen: placeholder('Erzeugen'),
+  erzeugen: renderGenerate,
   pruefen: placeholder('Prüfen'),
   uebersicht: renderOverview,
   einstellungen: renderSettings,
