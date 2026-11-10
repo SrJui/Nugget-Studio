@@ -1,0 +1,14 @@
+services:
+  studio:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8787}:8787"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - studio-data:/app/data
+
+volumes:
+  studio-data:

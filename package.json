@@ -1,0 +1,24 @@
+{
+  "name": "nugget-studio",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev:server": "node --watch --env-file-if-exists=.env src/server.ts",
+    "dev:web": "vite",
+    "build": "vite build",
+    "check": "tsc",
+    "start": "node src/server.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.6",
+    "hono": "^4.13.17"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.7"
+  }
+}
