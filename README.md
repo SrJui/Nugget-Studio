@@ -44,8 +44,7 @@ docker compose exec -it studio codex login --device-auth
 ```
 
 Link im Browser öffnen, den angezeigten Code eingeben. Danach in den Einstellungen auf
-„Status neu prüfen“ klicken. Bei ChatGPT gibt es nur das Standard-Modell, weil die Codex-CLI
-keine Modelle auflisten kann.
+„Status neu prüfen“ klicken.
 
 ## Aktualisieren
 
