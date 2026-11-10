@@ -1,0 +1,15 @@
+# Geheimnisse und lokale Daten
+.env
+data/
+
+# Installierte Pakete und Build-Ergebnisse
+node_modules/
+dist/
+
+# macOS
+.DS_Store
+
+# Installierte Claude-Skills
+.agents/
+.claude/
+skills-lock.json
