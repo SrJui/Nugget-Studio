@@ -1,3 +1,5 @@
+import { renderOverview } from './views/overview.ts';
+
 type View = (root: HTMLElement) => void;
 
 const placeholder = (title: string): View => (root) => {
@@ -7,7 +9,7 @@ const placeholder = (title: string): View => (root) => {
 const views: Record<string, View> = {
   erzeugen: placeholder('Erzeugen'),
   pruefen: placeholder('Prüfen'),
-  uebersicht: placeholder('Übersicht'),
+  uebersicht: renderOverview,
   einstellungen: placeholder('Einstellungen'),
 };
 
