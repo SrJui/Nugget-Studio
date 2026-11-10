@@ -37,7 +37,15 @@ docker compose exec -it studio claude auth login
 Den Anweisungen folgen: Link im Browser öffnen, bestätigen, den angezeigten Code ins Terminal einfügen.
 Danach in den Einstellungen auf „Status neu prüfen“ klicken.
 
-**ChatGPT anmelden:** in den Einstellungen auf „Mit ChatGPT anmelden“ klicken, Link öffnen, Code eingeben.
+**ChatGPT anmelden** (einmalig, im Ordner `nugget-studio`):
+
+```sh
+docker compose exec -it studio codex login --device-auth
+```
+
+Link im Browser öffnen, den angezeigten Code eingeben. Danach in den Einstellungen auf
+„Status neu prüfen“ klicken. Bei ChatGPT gibt es nur das Standard-Modell, weil die Codex-CLI
+keine Modelle auflisten kann.
 
 ## Aktualisieren
 

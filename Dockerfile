@@ -28,7 +28,8 @@ COPY --from=build /app/dist ./dist
 # Die Pfade stehen hier zusätzlich zu src/config.ts, damit auch `docker compose exec … claude auth login`
 # die Anmeldung dort ablegt.
 ENV CLAUDE_CONFIG_DIR=/app/data/claude \
-    CODEX_HOME=/app/data/codex
+    CODEX_HOME=/app/data/codex \
+    PATH=/app/node_modules/.bin:$PATH
 RUN mkdir -p /app/data && chown -R node:node /app/data
 USER node
 

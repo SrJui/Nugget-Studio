@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import { getSetting, setSetting } from '../db.ts';
-import { codexLoginState, codexLogout, startCodexLogin } from '../ai/codex.ts';
 import { activeProvider, isProviderId, modelSettingKey, providers, runWithActiveProvider } from '../ai/provider.ts';
 
 export const settings = new Hono();
@@ -34,15 +33,6 @@ settings.put('/model', async (c) => {
   const { provider, model } = await c.req.json();
   if (!isProviderId(provider) || typeof model !== 'string') return c.json({ error: 'Ungültige Angaben' }, 400);
   setSetting(modelSettingKey(provider), model);
-  return c.json({ ok: true });
-});
-
-settings.get('/codex/login', (c) => c.json(codexLoginState()));
-
-settings.post('/codex/login', async (c) => c.json(await startCodexLogin()));
-
-settings.post('/codex/logout', async (c) => {
-  await codexLogout();
   return c.json({ ok: true });
 });
 
