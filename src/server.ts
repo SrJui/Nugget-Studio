@@ -1,6 +1,12 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
+import { mkdirSync } from 'node:fs';
+
+// Die Anmelde-Ordner der KI-CLIs liegen im Daten-Volume und sind beim ersten Start noch leer.
+for (const dir of [process.env.CLAUDE_CONFIG_DIR, process.env.CODEX_HOME]) {
+  if (dir) mkdirSync(dir, { recursive: true });
+}
 
 const app = new Hono();
 
