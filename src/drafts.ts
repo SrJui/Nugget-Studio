@@ -10,6 +10,7 @@ export type Draft = {
   body: string;
   sources: CheckedSource[];
   issues: string[];
+  review: string | null;
   status: 'open' | 'published';
   fact_id: string | null;
   created_at: string;
@@ -17,6 +18,9 @@ export type Draft = {
 
 /** Inhalt eines Entwurfs nach Erzeugung und automatischer Prüfung. */
 export type PreparedDraft = Pick<Draft, 'topic_id' | 'title' | 'summary' | 'body' | 'sources' | 'issues'>;
+
+/** Ein Entwurf, den auch die Prüf-KI bestanden hat, mit ihrer Begründung. */
+export type CheckedDraft = PreparedDraft & { review: string };
 
 function toDraft(row: Record<string, unknown>): Draft {
   return {
@@ -35,10 +39,10 @@ export function getDraft(id: number): Draft | undefined {
   return row ? toDraft(row) : undefined;
 }
 
-export function insertDraft(jobId: number | null, draft: PreparedDraft) {
+export function insertDraft(jobId: number | null, draft: CheckedDraft) {
   db.prepare(
-    'INSERT INTO drafts (job_id, topic_id, title, summary, body, sources, issues) VALUES (?, ?, ?, ?, ?, ?, ?)',
-  ).run(jobId, draft.topic_id, draft.title, draft.summary, draft.body, JSON.stringify(draft.sources), JSON.stringify(draft.issues));
+    'INSERT INTO drafts (job_id, topic_id, title, summary, body, sources, issues, review) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run(jobId, draft.topic_id, draft.title, draft.summary, draft.body, JSON.stringify(draft.sources), JSON.stringify(draft.issues), draft.review);
 }
 
 export function updateDraft(id: number, draft: PreparedDraft) {
@@ -62,7 +66,6 @@ export function openDraftsAsKnown(exceptId?: number): KnownFact[] {
     .map(({ title, summary }) => ({ title, summary }));
 }
 
-export function countOpenDraftsByTopic(): Record<string, number> {
-  const rows = db.prepare("SELECT topic_id, COUNT(*) AS n FROM drafts WHERE status = 'open' GROUP BY topic_id").all();
-  return Object.fromEntries(rows.map((row) => [row.topic_id as string, row.n as number]));
+export function countOpenDrafts(): number {
+  return db.prepare("SELECT COUNT(*) AS n FROM drafts WHERE status = 'open'").get()!.n as number;
 }

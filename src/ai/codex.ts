@@ -14,12 +14,13 @@ import type { AiProvider, ModelOption } from './provider.ts';
 
 const codexCli = createRequire(import.meta.url).resolve('@openai/codex/bin/codex.js');
 
-/** Einstellungen für jeden Aufruf: nur ChatGPT-Abo, Anmeldung als Datei, Websuche an. */
+/** Einstellungen für jeden Aufruf: nur ChatGPT-Abo, Anmeldung als Datei. */
 const CONFIG = [
   '-c', 'forced_login_method="chatgpt"',
   '-c', 'cli_auth_credentials_store="file"',
-  '-c', 'web_search="live"',
 ];
+
+const LOGIN_HINT = 'Bitte zuerst bei ChatGPT anmelden (siehe Einstellungen).';
 
 type Result = { code: number | null; stdout: string; stderr: string };
 
@@ -120,10 +121,7 @@ export const codex: AiProvider = {
     return listModels();
   },
 
-  async run(prompt, schema, model) {
-    if (!(await this.status()).loggedIn) {
-      throw new Error('Bitte zuerst bei ChatGPT anmelden (siehe Einstellungen).');
-    }
+  async run(prompt, schema, { model, effort, research = true }) {
     const id = randomUUID();
     const schemaFile = resolve(aiWorkDir, `${id}-schema.json`);
     const outputFile = resolve(aiWorkDir, `${id}-output.json`);
@@ -133,6 +131,8 @@ export const codex: AiProvider = {
       const result = await runCodex([
         'exec',
         ...CONFIG,
+        '-c', `web_search="${research ? 'live' : 'disabled'}"`,
+        ...(effort ? ['-c', `model_reasoning_effort="${effort}"`] : []),
         '--skip-git-repo-check',
         '--ephemeral',
         '--sandbox', 'read-only',
@@ -144,6 +144,8 @@ export const codex: AiProvider = {
 
       if (result.code !== 0) {
         const lastLines = result.stderr.trim().split('\n').slice(-3).join(' ');
+        // Statt vor jedem Auftrag den Login zu prüfen (eigener Prozess), erst im Fehlerfall danach schauen.
+        if (/not logged in|login|unauthorized|401/i.test(lastLines)) throw new Error(LOGIN_HINT);
         throw new Error(`ChatGPT-Fehler: ${lastLines || 'unbekannt'}`);
       }
       try {

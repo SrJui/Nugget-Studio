@@ -17,7 +17,8 @@ db.exec(`
     topics     TEXT NOT NULL,               -- JSON-Liste von Themen-IDs
     direction  TEXT NOT NULL DEFAULT '',
     status     TEXT NOT NULL DEFAULT 'running', -- running | done | failed | cancelled
-    created    INTEGER NOT NULL DEFAULT 0,  -- bisher erzeugte Entwürfe
+    created    INTEGER NOT NULL DEFAULT 0,  -- bisher erzeugte und bestandene Entwürfe
+    rejected   INTEGER NOT NULL DEFAULT 0,  -- von den Prüfungen verworfene Facts
     error      TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -32,11 +33,21 @@ db.exec(`
     body       TEXT NOT NULL,
     sources    TEXT NOT NULL,               -- JSON: [{ title, url, ok }]
     issues     TEXT NOT NULL DEFAULT '[]',  -- JSON: Hinweise der automatischen Prüfung
+    review     TEXT,                        -- Begründung der Prüf-KI (leer = nicht von KI geprüft)
     status     TEXT NOT NULL DEFAULT 'open', -- open | published
     fact_id    TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+/** Ergänzt eine Spalte in einer schon bestehenden Datenbank. */
+function addColumn(table: string, column: string, definition: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+addColumn('jobs', 'rejected', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('drafts', 'review', 'TEXT');
 
 export function getSetting(key: string): string | undefined {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);

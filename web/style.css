@@ -1,8 +1,14 @@
 :root {
   color-scheme: light dark;
   --accent: #e8a33d;
+  --ok: #3a9d5d;
+  --danger: #d64545;
+  --warn: color-mix(in srgb, var(--accent) 22%, transparent);
   --muted: color-mix(in srgb, currentColor 55%, transparent);
-  --line: color-mix(in srgb, currentColor 15%, transparent);
+  --line: color-mix(in srgb, currentColor 13%, transparent);
+  --tint: color-mix(in srgb, currentColor 5%, transparent);
+  /* Kräftiges ease-out: Bewegung startet sofort, wirkt dadurch reaktionsschnell. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.5;
 }
@@ -11,111 +17,179 @@ body {
   margin: 0;
 }
 
+a {
+  color: inherit;
+  text-decoration-color: var(--muted);
+  text-underline-offset: 2px;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.25rem;
+}
+
+h2 {
+  font-size: 1.05rem;
+  margin: 2rem 0 0.5rem;
+}
+
+/* Kopfzeile */
+
 header {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding: 0.75rem 1.5rem;
+  gap: 2rem;
+  padding: 0.85rem 1.5rem;
   border-bottom: 1px solid var(--line);
 }
 
 nav {
   display: flex;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 nav a {
-  color: inherit;
   text-decoration: none;
+  color: var(--muted);
   padding: 0.25rem 0;
   border-bottom: 2px solid transparent;
 }
 
 nav a.active {
+  color: inherit;
   border-bottom-color: var(--accent);
 }
 
 .status {
   margin-left: auto;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--muted);
 }
 
 main {
-  max-width: 50rem;
+  max-width: 46rem;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 2rem 1.5rem 4rem;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th, td {
-  text-align: left;
-  padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.number {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.error {
-  color: #d64545;
-}
+/* Allgemein */
 
 .hint {
   color: var(--muted);
   font-size: 0.9rem;
 }
 
-.card {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.5rem 1.25rem 1.25rem;
-  margin-bottom: 1.25rem;
+.error {
+  color: var(--danger);
 }
 
-.card h2 {
-  font-size: 1.1rem;
-}
-
-.choice {
-  display: block;
-  padding: 0.25rem 0;
+.error:empty {
+  display: none;
 }
 
 .row {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
 }
 
-.row input {
-  flex: 1;
+.wide {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.25rem;
 }
 
-label.row {
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-fieldset {
-  border: none;
+.plain {
+  list-style: none;
   padding: 0;
-  margin: 0 0 1rem;
 }
 
-legend {
-  margin-bottom: 0.4rem;
+[hidden] {
+  display: none !important;
 }
 
-.topics {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
-  gap: 0.25rem 1rem;
+.card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.25rem 1.25rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: normal;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: var(--line);
+  vertical-align: middle;
+}
+
+.badge.ok,
+.badge.done {
+  background: var(--ok);
+  color: white;
+}
+
+.badge.failed {
+  background: var(--danger);
+  color: white;
+}
+
+.badge.warn {
+  background: var(--warn);
+}
+
+.flash {
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  background: var(--tint);
+}
+
+pre {
+  background: var(--line);
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+/* Formulare und Buttons */
+
+input, textarea, select, button {
+  font: inherit;
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #222;
+  cursor: pointer;
+  white-space: nowrap;
+  /* Nur das, was sich wirklich ändert – nie `all`. */
+  transition: transform 160ms var(--ease-out), background-color 150ms ease;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+button.secondary {
+  background: transparent;
+  color: inherit;
+  border-color: var(--line);
+}
+
+button.small {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+button.danger {
+  color: var(--danger);
 }
 
 button.link {
@@ -126,40 +200,167 @@ button.link {
   font-size: 0.85rem;
 }
 
-.wide {
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 1rem;
+}
+
+legend {
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+}
+
+.choice {
   display: block;
-  width: 100%;
-  box-sizing: border-box;
-  margin-top: 0.25rem;
+  padding: 0.2rem 0;
+}
+
+/* Erzeugen */
+
+.generate {
+  margin-top: 1.5rem;
+}
+
+.generate label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.generate input {
+  width: 6rem;
+  font-size: 1.1rem;
+}
+
+.generate button {
+  font-size: 1.1rem;
+}
+
+.jobs {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .job {
-  padding: 0.5rem 0;
+  padding: 0.75rem 0;
   border-bottom: 1px solid var(--line);
-}
-
-.job .row {
-  align-items: center;
 }
 
 .job .row button {
   margin-left: auto;
 }
 
-progress {
-  width: 100%;
-  accent-color: var(--accent);
+.job .error {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
 }
 
-/* Prüf-Ansicht */
+.bar {
+  height: 6px;
+  margin-top: 0.5rem;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
 
-.review-header {
-  align-items: baseline;
+.bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  /* Gleichmäßiger Fortschritt: linear. */
+  transition: transform 400ms linear;
+}
+
+/* Veröffentlichen: Liste */
+
+.page-header {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 1rem;
+}
+
+.facts {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.fact {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+
+.fact.leaving {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.fact-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  text-decoration: none;
+}
+
+.fact-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.fact-meta .badge {
+  margin-left: 0.25rem;
+  color: CanvasText;
+}
+
+.fact-summary {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.empty {
+  margin-top: 3rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Veröffentlichen: Detail */
+
+.back {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.note {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  margin-bottom: 1rem;
 }
 
 .issues {
-  background: color-mix(in srgb, #e8a33d 18%, transparent);
+  background: var(--warn);
   border-radius: 8px;
   padding: 0.6rem 1rem 0.6rem 2rem;
 }
@@ -187,17 +388,16 @@ progress {
 }
 
 .sources .ok {
-  color: #3a9d5d;
+  color: var(--ok);
 }
 
 .sources .bad {
-  color: #d64545;
+  color: var(--danger);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 0.5rem;
   margin-top: 1.5rem;
   position: sticky;
@@ -206,23 +406,7 @@ progress {
   background: Canvas;
 }
 
-button.danger {
-  color: #d64545;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-kbd {
-  font-family: inherit;
-  font-size: 0.75rem;
-  padding: 0 0.35rem;
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  opacity: 0.7;
-}
+/* Bearbeiten */
 
 .edit label {
   display: block;
@@ -239,43 +423,52 @@ kbd {
   margin-bottom: 0.4rem;
 }
 
-pre {
-  background: var(--line);
-  padding: 0.6rem 0.8rem;
-  border-radius: 6px;
-  overflow-x: auto;
+.source-row input {
+  flex: 1;
 }
 
-input, textarea, select, button {
-  font: inherit;
-  padding: 0.4rem 0.7rem;
-  border-radius: 6px;
-  border: 1px solid var(--line);
+/* Einstellungen */
+
+.roles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
 }
 
-button {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #222;
-  cursor: pointer;
+.effort {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
 }
 
-button.secondary {
-  background: transparent;
+.warn-text {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: var(--warn);
   color: inherit;
-  border-color: var(--line);
 }
 
-.badge {
-  font-size: 0.75rem;
-  font-weight: normal;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  background: var(--line);
-  vertical-align: middle;
+/* Hover nur mit Maus: auf Touch-Geräten würde er nach dem Tippen „hängen bleiben“. */
+@media (hover: hover) and (pointer: fine) {
+  button.secondary:hover:not(:disabled) {
+    background: var(--tint);
+  }
+
+  .fact:hover {
+    background: var(--tint);
+  }
+
+  .back:hover {
+    color: inherit;
+  }
 }
 
-.badge.ok {
-  background: #3a9d5d;
-  color: white;
+/* Weniger Bewegung: nur Überblenden, keine Verschiebung oder Skalierung. */
+@media (prefers-reduced-motion: reduce) {
+  button:active:not(:disabled),
+  .fact.leaving {
+    transform: none;
+  }
 }

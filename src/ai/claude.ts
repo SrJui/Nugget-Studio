@@ -88,18 +88,20 @@ export const claude: AiProvider = {
     return models.map((model) => ({ id: model.value, label: model.displayName || model.value }));
   },
 
-  async run(prompt, schema, model) {
+  async run(prompt, schema, { model, effort, research = true }) {
+    const tools = research ? WEB_TOOLS : [];
     const q = query({
       prompt,
       options: {
         ...baseOptions(),
-        tools: WEB_TOOLS,
-        allowedTools: WEB_TOOLS,
+        tools,
+        allowedTools: tools,
         permissionMode: 'dontAsk',
         persistSession: false,
         maxTurns: 40,
         outputFormat: { type: 'json_schema', schema: schema as Record<string, unknown> },
         ...(model ? { model } : {}),
+        ...(effort ? { effort } : {}),
       },
     });
 
