@@ -9,12 +9,15 @@ veröffentlichte Facts landen in Supabase.
   Hintergrund weiter, auch wenn die Seite geschlossen oder der Container neu gestartet wird.
 - **Veröffentlichen:** Liste aller geprüften Facts – einzeln oder alle auf einmal veröffentlichen.
   Ein Klick öffnet das Detail mit der Begründung der Prüf-KI, dort auch bearbeiten oder ablehnen.
-- **Einstellungen:** welche KI schreibt und welche prüft, Anmeldung, Modell, Verbindungstest.
+- **Einstellungen:** welche KI schreibt und welche prüft, Gründlichkeit (niedrig = schnell,
+  hoch = gründlich), Anmeldung, Modell, Verbindungstest.
 
-Ablauf pro Fact: Code-Prüfung (Länge von Titel (80) und Summary (140), Text und Quelle vorhanden,
-Verdacht auf Dublette) → Prüf-KI (Richtigkeit, Quellen, Verständlichkeit). Fällt ein Fact durch,
-wird er verworfen und ein neuer erzeugt. Nach dreimal so vielen Verworfenen wie bestellt bricht
-der Auftrag ab.
+Ablauf pro Fact: Code-Prüfung (Länge von Titel (80) und Summary (140), Text vorhanden, Verdacht
+auf Dublette; Quellen ohne oder mit nicht erreichbarem Link werden entfernt, ohne Quelle fällt der
+Fact durch) → Prüf-KI (Richtigkeit, Quellen, Verständlichkeit). Fällt ein Fact durch, wird er
+verworfen und ein neuer erzeugt. Nach dreimal so vielen Verworfenen wie bestellt bricht der
+Auftrag ab. Schreiber und Prüfer arbeiten gleichzeitig an aufeinanderfolgenden Durchgängen; die
+Dauer jedes KI-Auftrags steht im Server-Log.
 
 ## Auf dem Server einrichten
 

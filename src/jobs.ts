@@ -1,6 +1,6 @@
 import { db } from './db.ts';
 import { insertDraft } from './drafts.ts';
-import { generateDrafts } from './generate.ts';
+import { checkBatch, writeBatch, type Candidate, type GenerateResult } from './generate.ts';
 
 export type Job = {
   id: number;
@@ -47,37 +47,70 @@ function finish(id: number, status: Job['status'], error?: string) {
 }
 
 /** Das Thema, zu dem dieser Auftrag bisher die wenigsten Entwürfe hat. */
-function nextTopic(job: Job): string {
+/** Das Thema, zu dem dieser Auftrag bisher die wenigsten Entwürfe hat (Facts in Prüfung zählen mit). */
+function nextTopic(job: Job, pending: Candidate[]): string {
   const rows = db.prepare('SELECT topic_id, COUNT(*) AS n FROM drafts WHERE job_id = ? GROUP BY topic_id').all(job.id);
-  const counts = Object.fromEntries(rows.map((row) => [row.topic_id as string, row.n as number]));
+  const counts: Record<string, number> = Object.fromEntries(rows.map((row) => [row.topic_id as string, row.n as number]));
+  for (const fact of pending) counts[fact.topic_id] = (counts[fact.topic_id] ?? 0) + 1;
   return job.topics.reduce((best, topic) => ((counts[topic] ?? 0) < (counts[best] ?? 0) ? topic : best));
 }
 
+/** Ein Durchgang, den die Prüf-KI gerade prüft. */
+type Checking = { candidates: Candidate[]; result: Promise<GenerateResult> };
+
+function startCheck(candidates: Candidate[]): Checking {
+  const result = checkBatch(candidates);
+  // Fehler werden erst im nächsten Durchgang ausgewertet; bis dahin nicht als „unbehandelt“ melden.
+  result.catch(() => {});
+  return { candidates, result };
+}
+
+/**
+ * Schreiber und Prüfer arbeiten gleichzeitig: Während die Prüf-KI Durchgang N prüft,
+ * schreibt die Schreiber-KI schon Durchgang N+1.
+ */
 async function processJob(jobId: number) {
   let attempts = 0;
-  for (let job = getJob(jobId); job.status === 'running' && job.created < job.count; job = getJob(jobId)) {
-    const topic = nextTopic(job);
-    // Höchstens der Anteil eines Themas, damit sich auch kleine Aufträge auf alle Themen verteilen.
-    const perTopic = Math.ceil(job.count / job.topics.length);
-    const size = Math.min(BATCH_SIZE, perTopic, job.count - job.created);
+  let checking: Checking | undefined;
+
+  for (;;) {
+    const job = getJob(jobId);
+    if (job.status !== 'running') return; // abgebrochen: Ergebnisse in Prüfung verfallen
     if (job.rejected >= job.count * MAX_REJECTED_PER_FACT) {
       finish(jobId, 'failed', `Zu viele Facts verworfen (${job.rejected}). Bitte Prüf-Notizen im Server-Log ansehen.`);
       return;
     }
-    try {
-      const { passed, rejected } = await generateDrafts(topic, size);
-      // Nicht übernehmen, wenn der Auftrag inzwischen abgebrochen wurde.
-      if (getJob(jobId).status !== 'running') return;
-      for (const draft of passed) insertDraft(jobId, draft);
+
+    const pending = checking?.candidates.filter((fact) => !fact.blocked) ?? [];
+    const missing = job.count - job.created - pending.length;
+    if (missing <= 0 && !checking) break;
+
+    // Höchstens der Anteil eines Themas, damit sich auch kleine Aufträge auf alle Themen verteilen.
+    const perTopic = Math.ceil(job.count / job.topics.length);
+    const [written, checked] = await Promise.allSettled([
+      missing > 0 ? writeBatch(nextTopic(job, pending), Math.min(BATCH_SIZE, perTopic, missing), pending) : undefined,
+      checking?.result,
+    ]);
+    checking = undefined;
+
+    // Nicht übernehmen, wenn der Auftrag inzwischen abgebrochen wurde.
+    if (getJob(jobId).status !== 'running') return;
+    if (checked.status === 'fulfilled' && checked.value) {
+      for (const draft of checked.value.passed) insertDraft(jobId, draft);
       db.prepare('UPDATE jobs SET created = created + ?, rejected = rejected + ? WHERE id = ?')
-        .run(passed.length, rejected, jobId);
+        .run(checked.value.passed.length, checked.value.rejected, jobId);
+    }
+    if (written.status === 'fulfilled' && written.value) checking = startCheck(written.value);
+
+    const failure = [written, checked].find((outcome) => outcome.status === 'rejected');
+    if (!failure) {
       attempts = 0;
-    } catch (error) {
-      console.error(`Auftrag ${jobId}:`, error);
-      if (++attempts >= MAX_ATTEMPTS) {
-        finish(jobId, 'failed', (error as Error).message);
-        return;
-      }
+      continue;
+    }
+    console.error(`Auftrag ${jobId}:`, failure.reason);
+    if (++attempts >= MAX_ATTEMPTS) {
+      finish(jobId, 'failed', (failure.reason as Error).message);
+      return;
     }
   }
   finish(jobId, 'done');

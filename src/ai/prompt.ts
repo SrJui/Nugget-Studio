@@ -1,3 +1,5 @@
+import { encode } from '@toon-format/toon';
+
 /** Längengrenzen aus der Supabase-Tabelle `facts`. */
 export const MAX_TITLE = 80;
 export const MAX_SUMMARY = 140;
@@ -50,6 +52,11 @@ Regeln für jeden Fact:
 - Prüfe jeden Fact per Webrecherche, bevor du ihn aufnimmst.
 `.trim();
 
+/** Daten für die KI im kompakten TOON-Format (spart Tokens gegenüber JSON). */
+function asToon(facts: unknown[]): string {
+  return `Die Daten sind im TOON-Format (wie JSON, Feldnamen stehen einmal im Kopf einer Liste):\n\n${encode({ facts })}`;
+}
+
 function avoidList(existingTitles: string[]): string {
   if (!existingTitles.length) return '';
   return `\n\nDiese Facts gibt es schon. Wähle andere Inhalte, auch keine ähnlichen:\n${existingTitles.map((t) => `- ${t}`).join('\n')}`;
@@ -99,8 +106,9 @@ geschrieben. Prüfe jeden einzeln per Webrecherche:
 Setze ok nur auf true, wenn du den Fact ohne Bedenken veröffentlichen würdest. Im Zweifel false.
 reason: ein bis zwei Sätze auf Deutsch – was du geprüft hast bzw. was falsch ist.
 Gib genau ein Urteil pro Fact zurück, in derselben Reihenfolge.
+notes enthält Hinweise der automatischen Prüfung (z. B. entfernte, nicht erreichbare Quellen).
 
-${JSON.stringify(facts, null, 2)}`;
+${asToon(facts)}`;
 }
 
 export function shortenPrompt(facts: GeneratedFact[]): string {
@@ -108,5 +116,5 @@ export function shortenPrompt(facts: GeneratedFact[]): string {
 und die summary auf höchstens ${MAX_SUMMARY} Zeichen. Inhalt, body und sources bleiben unverändert.
 Gib alle Facts in derselben Reihenfolge zurück. Keine Webrecherche nötig.
 
-${JSON.stringify(facts, null, 2)}`;
+${asToon(facts)}`;
 }

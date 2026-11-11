@@ -435,6 +435,14 @@ legend {
   gap: 1rem;
 }
 
+.effort {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+}
+
 .warn-text {
   padding: 0.5rem 0.75rem;
   border-radius: 8px;

@@ -2,6 +2,9 @@ import { Hono } from 'hono';
 import { getSetting, setSetting } from '../db.ts';
 import {
   ROLES,
+  effortFor,
+  effortSettingKey,
+  isEffort,
   isProviderId,
   isRole,
   modelSettingKey,
@@ -23,7 +26,16 @@ settings.get('/', async (c) => {
     })),
   );
   const roles = Object.fromEntries(ROLES.map((role) => [role, providerFor(role).id]));
-  return c.json({ roles, providers: list });
+  const efforts = Object.fromEntries(ROLES.map((role) => [role, effortFor(role)]));
+  return c.json({ roles, efforts, providers: list });
+});
+
+/** Legt fest, wie gründlich (und damit wie langsam) eine Rolle nachdenkt. */
+settings.put('/effort', async (c) => {
+  const { role, effort } = await c.req.json();
+  if (!isRole(role) || !isEffort(effort)) return c.json({ error: 'Ungültige Angaben' }, 400);
+  setSetting(effortSettingKey(role), effort);
+  return c.json({ ok: true });
 });
 
 /** Legt fest, welcher Anbieter schreibt bzw. prüft. */

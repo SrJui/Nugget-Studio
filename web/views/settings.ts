@@ -3,7 +3,10 @@ import { escapeHtml, getJSON, sendJSON } from '../helpers.ts';
 type ProviderId = 'claude' | 'codex';
 type Provider = { id: ProviderId; label: string; loggedIn: boolean; detail?: string; model: string };
 type Role = 'writer' | 'checker';
-type Settings = { roles: Record<Role, ProviderId>; providers: Provider[] };
+type Effort = 'low' | 'medium' | 'high';
+type Settings = { roles: Record<Role, ProviderId>; efforts: Record<Role, Effort>; providers: Provider[] };
+
+const EFFORT_TEXT: Record<Effort, string> = { low: 'niedrig (schnell)', medium: 'mittel', high: 'hoch (gründlich)' };
 type ModelOption = { id: string; label: string };
 type TestResult = { role: Role; provider: string; ok: boolean; seconds?: number; error?: string };
 
@@ -40,6 +43,12 @@ export async function renderSettings(root: HTMLElement) {
                 <input type="radio" name="${role}" value="${provider.id}" ${provider.id === settings.roles[role] ? 'checked' : ''}>
                 ${escapeHtml(provider.label)} ${badge(provider)}
               </label>`).join('')}
+            <label class="effort">Gründlichkeit
+              <select data-effort="${role}">
+                ${(Object.keys(EFFORT_TEXT) as Effort[]).map((effort) => `
+                  <option value="${effort}" ${effort === settings.efforts[role] ? 'selected' : ''}>${EFFORT_TEXT[effort]}</option>`).join('')}
+              </select>
+            </label>
           </fieldset>`).join('')}
       </div>
       <p id="same-provider" class="hint warn-text">Beide nutzen denselben Anbieter – die Prüfung ist dann weniger unabhängig.</p>
@@ -60,6 +69,11 @@ export async function renderSettings(root: HTMLElement) {
     sameHint.hidden = chosen('writer') !== chosen('checker');
   };
   updateSameHint();
+
+  for (const select of root.querySelectorAll<HTMLSelectElement>('[data-effort]')) {
+    select.addEventListener('change', () =>
+      sendJSON('PUT', '/api/settings/effort', { role: select.dataset.effort, effort: select.value }));
+  }
 
   for (const radio of root.querySelectorAll<HTMLInputElement>('.roles input[type="radio"]')) {
     radio.addEventListener('change', () => {
