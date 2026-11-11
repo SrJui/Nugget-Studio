@@ -58,29 +58,49 @@ function avoidList(existingTitles: string[]): string {
 export function generatePrompt(options: {
   topicName: string;
   count: number;
-  direction: string;
   existingTitles: string[];
 }): string {
-  const direction = options.direction ? `\nRichtung: ${options.direction}` : '';
   return `${RULES}
 
-Aufgabe: Schreibe ${options.count} neue Facts zum Thema „${options.topicName}“.${direction}
+Aufgabe: Schreibe ${options.count} neue Facts zum Thema „${options.topicName}“.
 Die Facts sollen sich deutlich voneinander unterscheiden.${avoidList(options.existingTitles)}`;
 }
 
-export function regeneratePrompt(options: {
-  topicName: string;
-  previous: GeneratedFact;
-  hint: string;
-  existingTitles: string[];
-}): string {
+/** Antwortformat der Prüf-KI: ein Urteil pro Fact, in derselben Reihenfolge. */
+export const VERDICTS_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdicts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { ok: { type: 'boolean' }, reason: { type: 'string' } },
+        required: ['ok', 'reason'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['verdicts'],
+  additionalProperties: false,
+};
+
+export type Verdict = { ok: boolean; reason: string };
+
+/** Auftrag an die zweite KI: jeden Fact unabhängig prüfen. `notes` sind Hinweise der Code-Prüfung. */
+export function verifyPrompt(facts: (GeneratedFact & { notes: string[] })[]): string {
   return `${RULES}
 
-Aufgabe: Überarbeite diesen Fact zum Thema „${options.topicName}“ und gib genau einen Fact zurück.
-Hinweis der Redaktion: ${options.hint || 'Bitte einen besseren Fact zum selben Thema schreiben.'}
+Du bist jetzt nicht der Autor, sondern die strenge Faktenprüfung. Eine andere KI hat die folgenden Facts
+geschrieben. Prüfe jeden einzeln per Webrecherche:
+- Stimmt jede Aussage in title, summary und body? Ist nichts übertrieben oder irreführend vereinfacht?
+- Belegen die Quellen den Fact wirklich, und sind sie vertrauenswürdig?
+- Ist der Fact verständlich und hält er die Regeln oben ein?
 
-Bisherige Fassung:
-${JSON.stringify(options.previous, null, 2)}${avoidList(options.existingTitles)}`;
+Setze ok nur auf true, wenn du den Fact ohne Bedenken veröffentlichen würdest. Im Zweifel false.
+reason: ein bis zwei Sätze auf Deutsch – was du geprüft hast bzw. was falsch ist.
+Gib genau ein Urteil pro Fact zurück, in derselben Reihenfolge.
+
+${JSON.stringify(facts, null, 2)}`;
 }
 
 export function shortenPrompt(facts: GeneratedFact[]): string {

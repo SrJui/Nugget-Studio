@@ -25,14 +25,27 @@ export function isProviderId(value: unknown): value is ProviderId {
 
 export const modelSettingKey = (id: ProviderId) => `model_${id}`;
 
-/** Der in den Einstellungen gewählte Anbieter (Standard: Claude). */
-export function activeProvider(): AiProvider {
-  const id = getSetting('provider');
-  return isProviderId(id) ? providers[id] : providers.claude;
+/** Die KI, die Facts schreibt, und die KI, die sie danach prüft. */
+export type Role = 'writer' | 'checker';
+
+export const ROLES: Role[] = ['writer', 'checker'];
+
+export function isRole(value: unknown): value is Role {
+  return value === 'writer' || value === 'checker';
 }
 
-/** Führt einen Auftrag beim aktiven Anbieter mit dem dort gewählten Modell aus. */
-export function runWithActiveProvider(prompt: string, schema: object): Promise<unknown> {
-  const provider = activeProvider();
+export const roleSettingKey = (role: Role) => `provider_${role}`;
+
+const DEFAULT_PROVIDER: Record<Role, ProviderId> = { writer: 'claude', checker: 'codex' };
+
+/** Der Anbieter für eine Rolle. Der frühere einzelne Anbieter (`provider`) gilt als Schreiber. */
+export function providerFor(role: Role): AiProvider {
+  const id = getSetting(roleSettingKey(role)) ?? (role === 'writer' ? getSetting('provider') : undefined);
+  return providers[isProviderId(id) ? id : DEFAULT_PROVIDER[role]];
+}
+
+/** Führt einen Auftrag beim Anbieter der Rolle mit dem dort gewählten Modell aus. */
+export function runAs(role: Role, prompt: string, schema: object): Promise<unknown> {
+  const provider = providerFor(role);
   return provider.run(prompt, schema, getSetting(modelSettingKey(provider.id)) || undefined);
 }

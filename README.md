@@ -1,18 +1,20 @@
 # Nugget Studio
 
-Privates Web-Tool für die App **Nugget**: Eine KI (über dein Claude- oder ChatGPT-Abo) erzeugt
-Wissens-Facts mit Webrecherche, das Tool prüft sie automatisch vor, du gehst sie durch und gibst
-sie frei. Erst freigegebene Facts landen in Supabase.
+Privates Web-Tool für die App **Nugget**. Zwei KIs (über deine Claude- und ChatGPT-Abos) arbeiten
+zusammen: Die erste schreibt Wissens-Facts mit Webrecherche, die zweite prüft jeden Fact unabhängig.
+Nur bestandene Facts werden gespeichert; du siehst sie dir an und veröffentlichst sie. Erst
+veröffentlichte Facts landen in Supabase.
 
-- **Erzeugen:** Anzahl, Themen und optional eine Richtung wählen. Läuft im Hintergrund weiter,
-  auch wenn die Seite geschlossen oder der Container neu gestartet wird.
-- **Prüfen:** ein Entwurf nach dem anderen. Tasten: `A` freigeben, `E` bearbeiten, `R` ablehnen,
-  `N` neu erzeugen, `←`/`→` blättern.
-- **Übersicht:** freigegebene und offene Facts pro Thema.
-- **Einstellungen:** KI-Anbieter, Anmeldung, Modell, Verbindungstest.
+- **Erzeugen:** nur die Anzahl wählen. Die Facts verteilen sich auf alle Themen. Läuft im
+  Hintergrund weiter, auch wenn die Seite geschlossen oder der Container neu gestartet wird.
+- **Veröffentlichen:** Liste aller geprüften Facts – einzeln oder alle auf einmal veröffentlichen.
+  Ein Klick öffnet das Detail mit der Begründung der Prüf-KI, dort auch bearbeiten oder ablehnen.
+- **Einstellungen:** welche KI schreibt und welche prüft, Anmeldung, Modell, Verbindungstest.
 
-Automatische Prüfungen: Länge von Titel (80) und Summary (140), Erreichbarkeit jeder Quelle,
-Verdacht auf Dubletten.
+Ablauf pro Fact: Code-Prüfung (Länge von Titel (80) und Summary (140), Text und Quelle vorhanden,
+Verdacht auf Dublette) → Prüf-KI (Richtigkeit, Quellen, Verständlichkeit). Fällt ein Fact durch,
+wird er verworfen und ein neuer erzeugt. Nach dreimal so vielen Verworfenen wie bestellt bricht
+der Auftrag ab.
 
 ## Auf dem Server einrichten
 

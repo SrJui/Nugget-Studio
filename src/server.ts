@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { countPublishedByTopic, getTopics } from './supabase.ts';
-import { countOpenDraftsByTopic } from './drafts.ts';
+import { countOpenDrafts } from './drafts.ts';
 import { work } from './jobs.ts';
 import { settings } from './routes/settings.ts';
 import { jobs } from './routes/jobs.ts';
@@ -20,10 +20,10 @@ app.get('/api/health', (c) => c.json({ ok: true }));
 
 app.get('/api/topics', async (c) => c.json(await getTopics()));
 
-app.get('/api/overview', async (c) => {
-  const [topics, counts] = await Promise.all([getTopics(), countPublishedByTopic()]);
-  const open = countOpenDraftsByTopic();
-  return c.json(topics.map((topic) => ({ ...topic, published: counts[topic.id] ?? 0, open: open[topic.id] ?? 0 })));
+/** Zahlen für die Kopfzeile: veröffentlicht insgesamt und bereit zum Veröffentlichen. */
+app.get('/api/stats', async (c) => {
+  const counts = Object.values(await countPublishedByTopic());
+  return c.json({ published: counts.reduce((sum, n) => sum + n, 0), ready: countOpenDrafts() });
 });
 
 app.route('/api/settings', settings);

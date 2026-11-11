@@ -1,6 +1,15 @@
 import { Hono } from 'hono';
 import { getSetting, setSetting } from '../db.ts';
-import { activeProvider, isProviderId, modelSettingKey, providers, runWithActiveProvider } from '../ai/provider.ts';
+import {
+  ROLES,
+  isProviderId,
+  isRole,
+  modelSettingKey,
+  providerFor,
+  providers,
+  roleSettingKey,
+  runAs,
+} from '../ai/provider.ts';
 
 export const settings = new Hono();
 
@@ -13,13 +22,15 @@ settings.get('/', async (c) => {
       ...(await provider.status()),
     })),
   );
-  return c.json({ active: activeProvider().id, providers: list });
+  const roles = Object.fromEntries(ROLES.map((role) => [role, providerFor(role).id]));
+  return c.json({ roles, providers: list });
 });
 
+/** Legt fest, welcher Anbieter schreibt bzw. prüft. */
 settings.put('/provider', async (c) => {
-  const { provider } = await c.req.json();
-  if (!isProviderId(provider)) return c.json({ error: 'Unbekannter Anbieter' }, 400);
-  setSetting('provider', provider);
+  const { role, provider } = await c.req.json();
+  if (!isRole(role) || !isProviderId(provider)) return c.json({ error: 'Ungültige Angaben' }, 400);
+  setSetting(roleSettingKey(role), provider);
   return c.json({ ok: true });
 });
 
@@ -43,12 +54,17 @@ const TEST_SCHEMA = {
   additionalProperties: false,
 };
 
+/** Schickt Schreiber und Prüfer gleichzeitig einen kleinen Auftrag. */
 settings.post('/test', async (c) => {
-  const started = Date.now();
-  const result = await runWithActiveProvider('Antworte im Feld "answer" nur mit dem Wort: ok', TEST_SCHEMA);
-  return c.json({
-    provider: activeProvider().label,
-    result,
-    seconds: Math.round((Date.now() - started) / 1000),
-  });
+  const results = await Promise.all(ROLES.map(async (role) => {
+    const started = Date.now();
+    const provider = providerFor(role).label;
+    try {
+      const result = await runAs(role, 'Antworte im Feld "answer" nur mit dem Wort: ok', TEST_SCHEMA);
+      return { role, provider, ok: true, result, seconds: Math.round((Date.now() - started) / 1000) };
+    } catch (error) {
+      return { role, provider, ok: false, error: (error as Error).message };
+    }
+  }));
+  return c.json(results);
 });

@@ -6,17 +6,15 @@ export const jobs = new Hono();
 
 jobs.get('/', (c) => c.json(listJobs()));
 
+/** Neuer Auftrag über alle Themen. */
 jobs.post('/', async (c) => {
-  const { count, topics, direction } = await c.req.json();
-  const validTopics = new Set((await getTopics()).map((topic) => topic.id));
-
+  const { count } = await c.req.json();
   if (!Number.isInteger(count) || count < 1 || count > 200) {
     return c.json({ error: 'Anzahl muss zwischen 1 und 200 liegen.' }, 400);
   }
-  if (!Array.isArray(topics) || !topics.length || !topics.every((topic) => validTopics.has(topic))) {
-    return c.json({ error: 'Bitte mindestens ein gültiges Thema wählen.' }, 400);
-  }
-  return c.json(createJob(count, topics, typeof direction === 'string' ? direction.trim() : ''));
+  const topics = (await getTopics()).map((topic) => topic.id);
+  if (!topics.length) return c.json({ error: 'In Supabase sind keine Themen angelegt.' }, 400);
+  return c.json(createJob(count, topics));
 });
 
 jobs.post('/:id/cancel', (c) => {

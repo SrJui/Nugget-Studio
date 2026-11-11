@@ -6,15 +6,17 @@ export type Job = {
   id: number;
   count: number;
   topics: string[];
-  direction: string;
   status: 'running' | 'done' | 'failed' | 'cancelled';
   created: number;
+  rejected: number;
   error: string | null;
   created_at: string;
 };
 
 const BATCH_SIZE = 5;
 const MAX_ATTEMPTS = 3;
+/** Ab so vielen Verworfenen pro bestelltem Fact gibt der Auftrag auf, damit die Kosten nicht ausufern. */
+const MAX_REJECTED_PER_FACT = 3;
 
 function toJob(row: Record<string, unknown>): Job {
   return { ...(row as Omit<Job, 'topics'>), topics: JSON.parse(row.topics as string) };
@@ -28,10 +30,10 @@ export function listJobs(): Job[] {
   return db.prepare('SELECT * FROM jobs ORDER BY id DESC LIMIT 10').all().map(toJob);
 }
 
-export function createJob(count: number, topics: string[], direction: string): Job {
+export function createJob(count: number, topics: string[]): Job {
   const { lastInsertRowid } = db
-    .prepare('INSERT INTO jobs (count, topics, direction) VALUES (?, ?, ?)')
-    .run(count, JSON.stringify(topics), direction);
+    .prepare('INSERT INTO jobs (count, topics) VALUES (?, ?)')
+    .run(count, JSON.stringify(topics));
   void work();
   return getJob(Number(lastInsertRowid));
 }
@@ -58,13 +60,17 @@ async function processJob(jobId: number) {
     // Höchstens der Anteil eines Themas, damit sich auch kleine Aufträge auf alle Themen verteilen.
     const perTopic = Math.ceil(job.count / job.topics.length);
     const size = Math.min(BATCH_SIZE, perTopic, job.count - job.created);
+    if (job.rejected >= job.count * MAX_REJECTED_PER_FACT) {
+      finish(jobId, 'failed', `Zu viele Facts verworfen (${job.rejected}). Bitte Prüf-Notizen im Server-Log ansehen.`);
+      return;
+    }
     try {
-      const drafts = await generateDrafts(topic, size, job.direction);
-      if (!drafts.length) throw new Error('Die KI hat keine Facts geliefert.');
+      const { passed, rejected } = await generateDrafts(topic, size);
       // Nicht übernehmen, wenn der Auftrag inzwischen abgebrochen wurde.
       if (getJob(jobId).status !== 'running') return;
-      for (const draft of drafts) insertDraft(jobId, draft);
-      db.prepare('UPDATE jobs SET created = created + ? WHERE id = ?').run(drafts.length, jobId);
+      for (const draft of passed) insertDraft(jobId, draft);
+      db.prepare('UPDATE jobs SET created = created + ?, rejected = rejected + ? WHERE id = ?')
+        .run(passed.length, rejected, jobId);
       attempts = 0;
     } catch (error) {
       console.error(`Auftrag ${jobId}:`, error);

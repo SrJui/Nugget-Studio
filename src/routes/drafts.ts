@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { contentIssues } from '../checks.ts';
 import { deleteDraft, getDraft, listOpenDrafts, markPublished, updateDraft, type Draft } from '../drafts.ts';
-import { recheckDraft, regenerateDraft } from '../generate.ts';
+import { recheckDraft } from '../generate.ts';
 import { publishFact } from '../supabase.ts';
 
 export const drafts = new Hono();
@@ -15,6 +15,17 @@ function openDraft(id: string): Draft {
 
 function isText(value: unknown): value is string {
   return typeof value === 'string';
+}
+
+/** Trägt den Entwurf in Supabase ein. Wirft einen Fehler, wenn noch etwas Wichtiges fehlt. */
+async function publishDraft(draft: Draft) {
+  const blocking = contentIssues(draft);
+  if (blocking.length) throw new Error(`„${draft.title}“ kann nicht veröffentlicht werden: ${blocking.join(', ')}`);
+  const factId = await publishFact({
+    ...draft,
+    sources: draft.sources.map(({ title, url }) => ({ title, url })),
+  });
+  markPublished(draft.id, factId);
 }
 
 drafts.get('/', (c) => c.json(listOpenDrafts()));
@@ -41,25 +52,26 @@ drafts.put('/:id', async (c) => {
 });
 
 drafts.post('/:id/publish', async (c) => {
-  const draft = openDraft(c.req.param('id'));
-  const blocking = contentIssues(draft);
-  if (blocking.length) return c.json({ error: `Kann nicht freigeben: ${blocking.join(', ')}` }, 400);
-  const factId = await publishFact({
-    ...draft,
-    sources: draft.sources.map(({ title, url }) => ({ title, url })),
-  });
-  markPublished(draft.id, factId);
-  return c.json({ ok: true, factId });
+  await publishDraft(openDraft(c.req.param('id')));
+  return c.json({ ok: true });
+});
+
+/** Veröffentlicht alle offenen Entwürfe nacheinander. Einzelne Fehler halten den Rest nicht auf. */
+drafts.post('/publish-all', async (c) => {
+  let published = 0;
+  const errors: string[] = [];
+  for (const draft of listOpenDrafts()) {
+    try {
+      await publishDraft(draft);
+      published++;
+    } catch (error) {
+      errors.push((error as Error).message);
+    }
+  }
+  return c.json({ published, errors });
 });
 
 drafts.delete('/:id', (c) => {
   deleteDraft(openDraft(c.req.param('id')).id);
   return c.json({ ok: true });
-});
-
-drafts.post('/:id/regenerate', async (c) => {
-  const draft = openDraft(c.req.param('id'));
-  const { hint } = await c.req.json();
-  updateDraft(draft.id, await regenerateDraft(draft, isText(hint) ? hint.trim() : ''));
-  return c.json(getDraft(draft.id));
 });
